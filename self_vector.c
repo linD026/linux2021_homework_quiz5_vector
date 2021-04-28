@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <stdint.h>
 /* vector with small buffer optimization */
 
 #define STRUCT_BODY(type)                                                  \
@@ -123,7 +123,7 @@ static NON_NULL void __vec_push_back(void *restrict vec,
     } else {
         if (v->size == capacity) {
             void *tmp =
-                malloc(elemsize * (size_t) 1 << (v->capacity = capacity + 1));
+                malloc(elemsize * (size_t) 1 << (v->capacity = ilog2(capacity) + 1));
             memcpy(tmp, v->buf, elemsize * v->size);
             v->ptr = tmp;
             v->on_heap = 1;
@@ -133,34 +133,11 @@ static NON_NULL void __vec_push_back(void *restrict vec,
     }
 }
 
-#define FACTOR 1.5
-#define CHUNK_SIZE 4
-static inline float ilog_factor(float n) /* log1.5(n) = log2(n)/log2(1.5)*/
-{
-    return ceilf(log2f(n)/log2f(FACTOR));
-}
-/*
-#define vec_capacity(v) __vec_capacity(&v)
-static size_t inline __vec_capacity(void *vec)
-{
-    union {
-        STRUCT_BODY(char);
-        struct {
-            size_t filler;
-            char buf[];
-        };
-    } *v = vec;
-
-    if (v->on_heap)
-        return (size_t) (pow(1.5, v->capacity) * CHUNK_SIZE);
-    return CHUNK_SIZE;
-}
-*/
+///////////////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
 
-int main()
-{
+void std_test(void) {
     v(float, 3, vec1);
     v(int, 2, vec2, 13, 42);
 
@@ -205,6 +182,38 @@ int main()
     vec_pop_back(vec1);
     display(vec1);
 
+}
+
+void reserve_test(void) {
+    v(int, 2, vec2, 13, 42);
+
+    //printf("pos(vec2,0)=%d, pos(vec2,1)=%d\n", vec_pos(vec2, 0),
+    //    vec_pos(vec2, 1));
+    
+    //printf("capacity(vec2)=%zu\n", vec_capacity(vec2));
+    vec_push_back(vec2, 88);
+    //printf("capacity(vec2)=%zu\n", vec_capacity(vec2));    
+    vec_reserve(vec2, 1024);
+    //printf("capacity(vec2)=%zu\n", vec_capacity(vec2));
+    //printf("pos(vec2,2)=%d\n", vec_pos(vec2, 2));
+    vec_reserve(vec2, 1024);
+    vec_reserve(vec2, 2048);
+    vec_reserve(vec2, 4096);
+
+}
+void reuse_test(void) {
+    v(uint64_t, 3, test, 1, 2, 3);
+    printf("%10s    %10s    %10s    %10s\n", "i", "capacity", "realsize", "address");
+    printf("%10d    %10d    %10ld    %10p\n", 0, test.capacity, vec_capacity(test), &vec_pos(test, 1));
+    for (int i = 1;i <= 30;i++) {
+        vec_reserve(test, vec_capacity(test) * 2);
+        printf("%10d    %10d    %10ld    %10p\n", i, test.capacity, vec_capacity(test), &vec_pos(test, 1));
+    }
+}
+// s can be change
+int main()
+{
+    reuse_test();
     return 0;
 }
 
